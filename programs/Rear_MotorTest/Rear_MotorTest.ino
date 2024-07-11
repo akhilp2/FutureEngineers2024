@@ -35,7 +35,7 @@ display.setTextColor(WHITE);
 }
 
 void loop() {
-move_degree_left(false, 100, 355);
+move_degree_left(true, 100, 355);
 delay(1000);
 }
 
