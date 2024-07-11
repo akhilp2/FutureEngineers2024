@@ -24,19 +24,12 @@ int power = 200;
 int powr = 200;
 int val = 270;
 
-void setup() {
-  dcinitial();
-  delay(1000);
-  servoinitial();
-  delay(1000);
-  action1();
-  delay(1000);
-  action2();
-  delay(1000);
-  action3();
-}
+int servoPin = 5;
+Servo Servo1;
 
-void dcinitial() {
+void setup() {
+Servo1.attach(servoPin);
+
 Serial.begin(115200);
 pinMode(mlp, OUTPUT); 
 pinMode(mld, OUTPUT); 
@@ -46,38 +39,46 @@ display.clearDisplay();
 display.setTextSize(1);
 display.setTextColor(WHITE);
 
-move_degree_left(true, 255, 0);
-  // delay(1000);
-}
+move_degree_left_100(true, 255, 0);
+  delay(1000);
 
-int servoPin = 5;
+move_degree_left_100(true,100,3600);
+  delay(1000);
 
-Servo Servo1;
-void servoinitial() {
-Servo1.attach(servoPin);
-Servo1.write(100);          //Setting the initial position of the servo straight (90 degrees) under the function "servoinitial"
-  // delay(1000);
-}
-
-void action1() {
-move_degree_left(true, 100, 3600);
-  // delay(1000);
-}
-
-void action2() {
-Servo1.write(77);
-  // delay(1000);
-}
-
-void action3() {
-move_degree_left(true, 100, 1800);
-  // delay(1000);
+move_degree_left_77(true,100,1800);
+  delay(1000);
 }
 
 void loop() {
 }
 
-void move_degree_left( bool dir, int pace, float dis){
+void move_degree_left_100( bool dir, int pace, float dis){
+    Servo1.write(100);
+    left_flag = dir;
+    analogWrite(mlp, pace ); 
+    digitalWrite(mld,left_flag);
+  while( abs(left_tick)<dis*0.75)
+  {
+//    continue;
+//    Serial.println("moving");
+delayMicroseconds(1);
+//    Serial.println(i);
+    
+  }
+  analogWrite(mlp, 255); 
+    digitalWrite(mld, !left_flag);
+    delay(10);
+  display.clearDisplay();
+    display.setCursor(0,0);
+    display.print(left_tick*1.333);
+    display.display();
+  Serial.println("done moving");
+    left_tick=0;
+  
+}
+
+void move_degree_left_77( bool dir, int pace, float dis){
+    Servo1.write(77);
     left_flag = dir;
     analogWrite(mlp, pace ); 
     digitalWrite(mld,left_flag);

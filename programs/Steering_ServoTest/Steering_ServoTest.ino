@@ -9,16 +9,16 @@ Servo1.attach(servoPin);
 }
 
 void loop(){
-  // Make servo go to 90 degrees
+  // Make servo go to 100 degrees
   Servo1.write(100);
   delay(2000);
-  // Make servo go to 75 degrees
+  // Make servo go to 121 degrees
   Servo1.write(121);
   delay(2000);
-  // Make servo go back to 90 degrees
+  // Make servo go back to 100 degrees
   Servo1.write(100);
   delay(2000);
-  //Make servo go to 105 degrees
+  //Make servo go to 77 degrees
   Servo1.write(77);
   delay(2000);
 }
