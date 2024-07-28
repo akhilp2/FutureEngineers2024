@@ -7,14 +7,13 @@
 #define OLED_RESET 4
 Adafruit_SSD1306 display(OLED_RESET);
 
+ #define mlp 15
+ #define mld 16  // Motor port 1
+ #define mlf 17
 
-#define mlp 15
-#define mld 16  // Motor port 1
-#define mlf 17
-
-// #define mlp 25
-// #define mld 26   // motor port 3
-// #define mlf 27
+//#define mlp 25
+//#define mld 26   // motor port 3
+//#define mlf 27
 
 int left_tick = 0;
 int right_tick = 0;
@@ -24,7 +23,7 @@ int power = 200;
 int powr = 200;
 int val = 270;
 
-int servoPin = 5;
+int servoPin = 19;
 Servo Servo1;
 
 void setup() {
@@ -45,7 +44,7 @@ move_degree_left_100(true, 255, 0);
 move_degree_left_100(true,100,3600);
   delay(1000);
 
-move_degree_left_77(true,100,1800);
+move_degree_left_121(true,100,1800);
   delay(1000);
 }
 
@@ -77,8 +76,8 @@ delayMicroseconds(1);
   
 }
 
-void move_degree_left_77( bool dir, int pace, float dis){
-    Servo1.write(77);
+void move_degree_left_121( bool dir, int pace, float dis){
+    Servo1.write(121);
     left_flag = dir;
     analogWrite(mlp, pace ); 
     digitalWrite(mld,left_flag);
@@ -109,4 +108,4 @@ void left_wheel_pulse() {
 else{
    left_tick--;
 }
-}
+} 
