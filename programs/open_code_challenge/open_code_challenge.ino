@@ -1,22 +1,23 @@
-
 #include "Adafruit_TCS34725.h"
 #include <Servo.h>
 #include <SPI.h>
 #include <Wire.h>
 #include <MPU6050_light.h>
 #include <SharpIR.h>
-#define irfront A0
-#define modelfront 20150
+#define irleft A0
+#define modelleft 20150
 
 #define irright A2
 #define modelright 20150
 
-SharpIR SharpIRleft(irfront, modelfront);
+SharpIR SharpIRleft(irleft, modelleft);
 SharpIR SharpIRright(irright, modelright);
 
-Servo myservo;
-const int servoPin = 9;
+  // Pin of Servo (front wheels)
+  Servo myservo;
+  const int servoPin = 9;
 
+// Pin of DC Motor (back wheels)
 #define mlp 3
 #define mld 4  // Motor port 1
 #define mlf 2
@@ -26,27 +27,34 @@ bool left_flag = HIGH;
 int power = 200;
 unsigned long time1 = 0;
 
+// Gyro Setup
 MPU6050 mpu(Wire);
 unsigned long timer = 0;
 int angle = 0;
 int angle1 = 0;
 int counter = 0;
 
-Adafruit_TCS34725 tcs = Adafruit_TCS34725(TCS34725_INTEGRATIONTIME_24MS, TCS34725_GAIN_4X);
+// Button Setup
+int buttonState = 1;
+const int buttonPin = 8;
+
+// Colour Sensor Setup
+Adafruit_TCS34725 tcs = Adafruit_TCS34725(TCS34725_INTEGRATIONTIME_2_4MS, TCS34725_GAIN_4X);
+bool dir = false;
 
 void setup() {
   Serial.begin(9600);
   myservo.attach(servoPin, 500, 2500);
-  myservo.write(113);
+  myservo.write(112);
   delay(100);
-
 
   Serial.begin(9600);
   pinMode(mlp, OUTPUT);
   pinMode(mld, OUTPUT);
+  pinMode(buttonPin, INPUT);
   attachInterrupt(digitalPinToInterrupt(mlf), left_wheel_pulse, RISING);
   digitalWrite(mlp, HIGH);
-
+  digitalWrite(buttonPin, HIGH);
 
   Wire.begin();
   byte status = mpu.begin();
@@ -54,6 +62,44 @@ void setup() {
   Serial.println(status);
   while (status != 0)
     ;
+
+  analogWrite(mlp, 255);
+  digitalWrite(mld, true);
+
+  while (buttonState == HIGH) {
+    buttonState = digitalRead(buttonPin);
+  }
+  delay(500);
+  mpu.update();
+  int disfrmright = SharpIRright.distance();
+
+  if (disfrmright < 70) {
+    myservo.write(130);
+    while (mpu.getAngleZ() < 40) {
+      mpu.update();
+      analogWrite(mlp, 100);
+      digitalWrite(mld, true);
+    }
+    myservo.write(94);
+    while (mpu.getAngleZ() > 5) {
+      mpu.update();
+      analogWrite(mlp, 100);
+      digitalWrite(mld, true);
+    }
+  } else if (disfrmright > 100) {
+    myservo.write(94);
+    while (mpu.getAngleZ() > -40) {
+      mpu.update();
+      analogWrite(mlp, 100);
+      digitalWrite(mld, true);
+    }
+    myservo.write(130);
+    while (mpu.getAngleZ() < -5) {
+      mpu.update();
+      analogWrite(mlp, 100);
+      digitalWrite(mld, true);
+    }
+  }
 }
 
 void loop() {
@@ -62,59 +108,75 @@ void loop() {
   colorTemp = tcs.calculateColorTemperature_dn40(r, g, b, c);
   lux = tcs.calculateLux(r, g, b);
 
-  Serial.print("Color Temp: "); Serial.print(colorTemp, DEC); Serial.print(" K - ");
-  Serial.print("Lux: "); Serial.print(lux, DEC); Serial.print(" - ");
-  Serial.print("R: "); Serial.print(r, DEC); Serial.print(" ");
-  Serial.print("G: "); Serial.print(g, DEC); Serial.print(" ");
-  Serial.print("B: "); Serial.print(b, DEC); Serial.print(" ");
-  Serial.print("C: "); Serial.print(c, DEC); Serial.print(" ");
-  Serial.println(" ");
+  // Serial.print("Color Temp: "); Serial.print(colorTemp, DEC); Serial.print(" K - ");
+  // Serial.print("Lux: "); Serial.print(lux, DEC); Serial.print(" - ");
+  // Serial.print("R: "); Serial.print(r, DEC); Serial.print(" ");
+  // Serial.print("G: "); Serial.print(g, DEC); Serial.print(" ");
+  // Serial.print("B: "); Serial.print(b, DEC); Serial.print(" ");
+  // Serial.print("C: "); Serial.print(c, DEC); Serial.print(" ");
+  // Serial.println(" ");
 
-  if (lux > 1000) {
-    lux = 1000;
-  }
-
-  if (lux < 100){
-    digitalWrite(13, HIGH);
-  }
-
-  // if (lux > 1000){
-  //   digitalWrite(13, HIGH);
-  // }
   mpu.update();
+  int servoAngle = map((mpu.getAngleZ() - angle1), 30, -30, 92, 132);  // Adjust the mapping as necessary
+  myservo.write(servoAngle);
+  analogWrite(mlp, 170);
+  digitalWrite(mld, true);
+
   int disfrmleft = SharpIRleft.distance();
   int disfrmright = SharpIRright.distance();
-  // myservo.write(113);
-  int servoAngle = map((mpu.getAngleZ() - angle1), 50, -50, 90, 132);  // Adjust the mapping as necessary
-  myservo.write(servoAngle);
-  analogWrite(mlp, 100);
-  digitalWrite(mld, true);
-  
-  if (lux > 800) {
-    digitalWrite(13, LOW);
-    angle1 -= 90;
-    myservo.write(93);
 
+  Serial.print("Distance from Left: ");
+  Serial.print(disfrmleft);
+  Serial.print(" ----- Distance from Right: ");
+  Serial.println(disfrmright);
+
+  if (counter == 0) {
+    servoAngle = map((mpu.getAngleZ() - angle1), 30, -30, 92, 132);
+    myservo.write(servoAngle);
+  } else {
+    if (dir) {  //true
+      if (disfrmleft < 45) {
+        myservo.write(103);
+      } else if (disfrmleft > 55 && disfrmleft < 100) {
+        myservo.write(123);
+      }
+      // delay(10);
+    } else {  //blue
+      if (disfrmright < 45) {
+        myservo.write(123);
+      } else if (disfrmright > 55 && disfrmright < 100) {
+        myservo.write(103);
+      }
+      // delay(10);
+    }
+  }
+  if (lux < 10 && r > 20) {  // orange
+    angle1 -= 90;
+    myservo.write(95);
+    dir = true;
     while (mpu.getAngleZ() > angle1 + 2) {
       mpu.update();
       analogWrite(mlp, 100);
       digitalWrite(mld, true);
     }
     counter += 1;
-    move_degree_left(true, 0, 2160, angle1);
+    move_degree_for_orange(true, 0, 1800, angle1);
   }
-  else if (lux < 50) {
+  if (lux < 6 && r < 15) {  // blue
     // digitalWrite(13, LOW);
     angle1 += 90;
-    myservo.write(128);
+    dir = false;
+    myservo.write(130);
     while (mpu.getAngleZ() < angle1 - 2) {
       mpu.update();
       analogWrite(mlp, 100);
       digitalWrite(mld, true);
     }
     counter += 1;
-    move_degree_left(true, 0, 2160, angle1);
+    move_degree_for_blue(true, 0, 1800, angle1);
   }
+
+
 
   if (counter == 12) {
     move_degree(false, 0, 0);
@@ -124,13 +186,86 @@ void loop() {
   }
 
   if (counter == 13) {
-    move_degree(true, 255, 0);
+    move_degree(true, 2160, 0);
   }
 }
 
 
+//---------------------------------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------------------
+
+
 //gyro straighting untill degree of the motor and remaing there
-void move_degree_left(bool dir, int pace, float dis, int angle) {
+void move_degree_for_blue(bool dir, int pace, float dis, int angle) {
+  left_tick = 0;
+  left_flag = dir;
+  digitalWrite(mlp, HIGH);
+  analogWrite(mlp, pace);
+  digitalWrite(mld, left_flag);
+  int disfrmright = SharpIRright.distance();
+  int disfrmleft = SharpIRleft.distance();
+
+  while (abs(left_tick) < dis * 0.75) {
+    mpu.update();
+    int servoAngle = map((mpu.getAngleZ() - angle1), 30, -30, 92, 132);  // Adjust the mapping as necessary
+    myservo.write(servoAngle);
+    // int disfrmleft = SharpIRfront.distance();
+    int disfrmright = SharpIRright.distance();
+    int disfrmleft = SharpIRleft.distance();
+
+    //option1--------------------------------------------------------------------------------------------------
+    if (disfrmright < 45) {
+      myservo.write(123);
+    } else if (disfrmright > 55 && disfrmright < 100) {
+      myservo.write(103);
+    } else {
+      mpu.update();
+      int servoAngle = map((mpu.getAngleZ() - angle1), 30, -30, 92, 132);  // Adjust the mapping as necessary
+      myservo.write(servoAngle);
+    }
+
+    // if (disfrmleft < 50) {
+    //   myservo.write(95);
+    //   delay(10);
+    // }
+    //option2--------------------------------------------------------------------------------------------------
+    // if (disfrmright < 40 ) {
+    //   myservo.write(132);
+    // } else if (disfrmleft > 30) {
+    //   myservo.write(90);
+    // } else {
+    //   mpu.update();
+    //   int servoAngle = map((mpu.getAngleZ() - angle1), 30, -30, 90, 132);  // Adjust the mapping as necessary
+    //   myservo.write(servoAngle);
+    // }
+
+    //option3--------------------------------------------------------------------------------------------------
+    // if (disfrmright - disfrmleft > 2) {
+    //   myservo.write(90);
+    // } else if (disfrmright - disfrmleft < -2) {
+    //   myservo.write(132);
+    // } else {
+    //   mpu.update();
+    //   int servoAngle = map((mpu.getAngleZ() - angle1), 30, -30, 90, 132);  // Adjust the mapping as necessary
+    //   myservo.write(servoAngle);
+    // }
+
+    delayMicroseconds(1);
+  }
+
+  left_tick = 0;
+}
+
+//---------------------------------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------------------
+
+void move_degree_for_orange(bool dir, int pace, float dis, int angle) {
   left_tick = 0;
   left_flag = dir;
   digitalWrite(mlp, HIGH);
@@ -142,40 +277,54 @@ void move_degree_left(bool dir, int pace, float dis, int angle) {
   while (abs(left_tick) < dis * 0.75) {
 
     mpu.update();
-    int servoAngle = map((mpu.getAngleZ() - angle1), 50, -50, 90, 132);  // Adjust the mapping as necessary
+    int servoAngle = map((mpu.getAngleZ() - angle1), 30, -30, 92, 132);  // Adjust the mapping as necessary
     myservo.write(servoAngle);
-    // int disfrmleft = SharpIRfront.distance();
+    int disfrmleft = SharpIRleft.distance();
     int disfrmright = SharpIRright.distance();
-    if (disfrmright < 50) {
-      myservo.write(132);
-    } else if (disfrmright > 60) {
-      myservo.write(90);
-    } else if (disfrmleft < 50) {
-      myservo.write(90);
-    } else if (disfrmleft > 60) {
-      myservo.write(132);
+
+    //option1--------------------------------------------------------------------------------------------------
+    if (disfrmleft < 45) {
+      myservo.write(103);
+    } else if (disfrmleft > 55 && disfrmleft < 100) {
+      myservo.write(123);
     } else {
       mpu.update();
-      int servoAngle = map((mpu.getAngleZ() - angle1), 50, -50, 90, 132);  // Adjust the mapping as necessary
+      int servoAngle = map((mpu.getAngleZ() - angle1), 50, -50, 92, 132);  // Adjust the mapping as necessary
       myservo.write(servoAngle);
     }
-    //   while (mpu.getAngleZ() < angle1) {
-    //   mpu.update();
-    //   myservo.write(113 + ((30 - disfrmright) / 10 ));
-    //   analogWrite(mlp, 100);
-    //   digitalWrite(mld, true);
+
+    // if (disfrmright < 50) {
+    //   myservo.write(130);
+    //   delay(10);
     // }
+
+    //option2--------------------------------------------------------------------------------------------------
+    // if (disfrmright < 40 ) {
+    //   myservo.write(132);
+    // } else if (disfrmleft > 30) {
+    //   myservo.write(90);
+    // } else {
+    //   mpu.update();
+    //   int servoAngle = map((mpu.getAngleZ() - angle1), 50, -50, 90, 132);  // Adjust the mapping as necessary
+    //   myservo.write(servoAngle);
+    // }
+
+    //option3--------------------------------------------------------------------------------------------------
+    // if (disfrmleft - disfrmright > 2 ) {
+    //   myservo.write(132);
+    // } else if (disfrmleft - disfrmright < -2) {
+    //   myservo.write(90);
+    // } else {
+    //   mpu.update();
+    //   int servoAngle = map((mpu.getAngleZ() - angle1), 50, -50, 90, 132);  // Adjust the mapping as necessary
+    //   myservo.write(servoAngle);
+    // }
+
     delayMicroseconds(1);
   }
 
-  // analogWrite(mlp, 255);
-  // digitalWrite(mld, !left_flag);
-  // delay(10);
-  // Serial.println("done moving");
   left_tick = 0;
 }
-
-
 
 
 //gyro straighting untill the angle
@@ -189,7 +338,7 @@ void move_degree_angle(bool dir, int pace, float dis, int angle) {
   while (mpu.getAngleZ() < angle) {
     delayMicroseconds(1);
     mpu.update();
-    int servoAngle = map((mpu.getAngleZ() - angle - 5), 50, -50, 90, 132);  // Adjust the mapping as necessary
+    int servoAngle = map((mpu.getAngleZ() - angle - 5), 50, -50, 92, 132);  // Adjust the mapping as necessary
     myservo.write(servoAngle);
     // Serial.println(left_tick);
   }
